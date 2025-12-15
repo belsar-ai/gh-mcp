@@ -1,10 +1,6 @@
-#!/bin/bash
-# Setup husky for git hooks
+#!/usr/bin/env bash
+set -euo pipefail
 
-if [ -d ".git" ]; then
-    npx husky init 2>/dev/null || true
-    echo "npx lint-staged" > .husky/pre-commit
-    echo "✅ Husky configured"
-else
-    echo "⏭️  Not a git repo, skipping husky setup"
+if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  npx husky
 fi
