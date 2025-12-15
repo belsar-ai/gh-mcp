@@ -1,0 +1,82 @@
+name: Publish to npm
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+          cache: 'npm'
+
+      - name: Update npm
+        run: npm install -g npm@latest
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run typecheck
+        run: npm run typecheck
+
+      - name: Run linting
+        run: npm run lint:ci
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build project
+        run: npm run build
+
+      - name: Determine npm tag
+        id: npm-tag
+        run: |
+          if [[ "${{ github.ref_name }}" == *"beta"* ]]; then
+            echo "tag=beta" >> $GITHUB_OUTPUT
+            echo "prerelease=true" >> $GITHUB_OUTPUT
+          else
+            echo "tag=latest" >> $GITHUB_OUTPUT
+            echo "prerelease=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Publish to npm (using OIDC Trusted Publisher)
+        run: npm publish --tag ${{ steps.npm-tag.outputs.tag }}
+
+      - name: Update extension version from tag
+        run: |
+          VERSION=$(echo ${{ github.ref_name }} | sed 's/v//')
+          sed -i "s/\"version\": \".*\"/\"version\": \"$VERSION\"/" gemini-extension.json
+
+      - name: Create release tarball for gemini-cli
+        run: tar -czf ../gh-mcp-release.tar.gz --exclude='.git' --exclude='.github' --exclude='tests' . && mv ../gh-mcp-release.tar.gz .
+
+      - name: Create GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PRERELEASE_FLAG=""
+          if [[ "${{ steps.npm-tag.outputs.prerelease }}" == "true" ]]; then
+            PRERELEASE_FLAG="--prerelease"
+          fi
+          gh release create ${{ github.ref_name }} \
+             --generate-notes \
+             --title "Release ${{ github.ref_name }}" \
+             --notes "Published to npm as 
+${{ steps.npm-tag.outputs.tag }}
+: https://www.npmjs.com/package/@belsar-ai/gh-mcp" \
+             $PRERELEASE_FLAG \
+             gh-mcp-release.tar.gz
