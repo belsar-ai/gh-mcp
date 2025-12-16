@@ -75,8 +75,6 @@ jobs:
           gh release create ${{ github.ref_name }} \
              --generate-notes \
              --title "Release ${{ github.ref_name }}" \
-             --notes "Published to npm as 
-${{ steps.npm-tag.outputs.tag }}
-: https://www.npmjs.com/package/@belsar-ai/gh-mcp" \
+             --notes "Published to npm as ${{ steps.npm-tag.outputs.tag }}: https://www.npmjs.com/package/@belsar-ai/gh-mcp" \
              $PRERELEASE_FLAG \
              gh-mcp-release.tar.gz
