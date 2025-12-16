@@ -54,7 +54,7 @@ jobs:
           fi
 
       - name: Publish to npm (using OIDC Trusted Publisher)
-        run: npm publish --tag ${{ steps.npm-tag.outputs.tag }}
+        run: npm publish --tag ${{ steps.npm-tag.outputs.tag }} --provenance
 
       - name: Update extension version from tag
         run: |
