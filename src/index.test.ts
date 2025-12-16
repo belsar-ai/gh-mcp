@@ -40,27 +40,25 @@ describe('discoverGitHubToken', () => {
   it('should use token from ~/.gemini/.env', () => {
     delete process.env.GITHUB_TOKEN;
     delete process.env.GH_TOKEN;
-    
+
     vi.mocked(os.homedir).mockReturnValue('/home/testuser');
     vi.mocked(fs.existsSync).mockReturnValue(true);
     vi.mocked(fs.readFileSync).mockReturnValue(
-      'GITHUB_TOKEN=file-token\nOTHER_VAR=foo'
+      'GITHUB_TOKEN=file-token\nOTHER_VAR=foo',
     );
 
     const token = discoverGitHubToken();
     expect(token).toBe('file-token');
     expect(fs.existsSync).toHaveBeenCalledWith('/home/testuser/.gemini/.env');
   });
-  
+
   it('should handle quoted token in ~/.gemini/.env', () => {
     delete process.env.GITHUB_TOKEN;
     delete process.env.GH_TOKEN;
-    
+
     vi.mocked(os.homedir).mockReturnValue('/home/testuser');
     vi.mocked(fs.existsSync).mockReturnValue(true);
-    vi.mocked(fs.readFileSync).mockReturnValue(
-      'GITHUB_TOKEN="quoted-token"'
-    );
+    vi.mocked(fs.readFileSync).mockReturnValue('GITHUB_TOKEN="quoted-token"');
 
     const token = discoverGitHubToken();
     expect(token).toBe('quoted-token');
@@ -70,6 +68,7 @@ describe('discoverGitHubToken', () => {
     delete process.env.GITHUB_TOKEN;
     delete process.env.GH_TOKEN;
     vi.mocked(fs.existsSync).mockReturnValue(false);
+    vi.mocked(os.homedir).mockReturnValue('/home/testuser');
 
     const token = discoverGitHubToken();
     expect(token).toBeNull();

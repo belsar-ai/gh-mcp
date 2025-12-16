@@ -1,8 +1,26 @@
 {
   "name": "@belsar-ai/gh-mcp",
   "version": "0.1.0",
-  "type": "module",
   "description": "Model Context Protocol (MCP) server for GitHub Issues with script execution",
+  "keywords": [
+    "mcp",
+    "github",
+    "issues",
+    "model-context-protocol",
+    "ai",
+    "llm"
+  ],
+  "homepage": "https://github.com/belsar-ai/gh-mcp#readme",
+  "bugs": {
+    "url": "https://github.com/belsar-ai/gh-mcp/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/belsar-ai/gh-mcp.git"
+  },
+  "license": "Apache-2.0",
+  "author": "Kyle Lyon",
+  "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
@@ -34,24 +52,6 @@
     "release:major": "npm version major -m 'Release %s'",
     "release:beta": "npm version prerelease --preid=beta -m 'Release %s'"
   },
-  "keywords": [
-    "mcp",
-    "github",
-    "issues",
-    "model-context-protocol",
-    "ai",
-    "llm"
-  ],
-  "author": "Kyle Lyon",
-  "license": "Apache-2.0",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/belsar-ai/gh-mcp.git"
-  },
-  "homepage": "https://github.com/belsar-ai/gh-mcp#readme",
-  "bugs": {
-    "url": "https://github.com/belsar-ai/gh-mcp/issues"
-  },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
     "smol-toml": "^1.5.2"
@@ -70,6 +70,9 @@
     "typescript-eslint": "^8.30.1",
     "vitest": "^3.2.4"
   },
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "lint-staged": {
     "src/**/*.{ts,js}": [
       "prettier --write",
@@ -78,8 +81,5 @@
     "*.{json,md}": [
       "prettier --write"
     ]
-  },
-  "engines": {
-    "node": ">=18.0.0"
   }
 }
