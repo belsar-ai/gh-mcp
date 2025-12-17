@@ -1,3 +1,5 @@
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { loadConfig } from '../config.js';
 import { discoverGitHubToken } from '../config/token-discovery.js';
 import type {
@@ -10,6 +12,21 @@ import { ConfigError } from '../types/github.js';
 import * as queries from './queries.js';
 
 const GITHUB_GRAPHQL_URL = 'https://api.github.com/graphql';
+const CACHE_DIR = '.mcp-config';
+const CACHE_FILE = 'gh-mcp-cache.json';
+const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+interface CacheSchema {
+  repoKey: string;
+  timestamp: number;
+  data: {
+    repositoryId: string;
+    projectId: string | null;
+    labels: Record<string, string>;
+    milestones: Record<string, string>;
+    issueTypes: Record<string, string>;
+  };
+}
 
 /**
  * GitHub GraphQL API Client
@@ -29,6 +46,75 @@ export class GitHubClient {
     }
     this.token = token;
     this.config = loadConfig();
+  }
+
+  private getCachePath(): string {
+    return path.join(process.cwd(), CACHE_DIR, CACHE_FILE);
+  }
+
+  private getRepoKey(): string {
+    const { owner, repo } = this.getRepoInfo();
+    return `${owner}/${repo}`;
+  }
+
+  private loadCacheFromDisk(): void {
+    try {
+      const cachePath = this.getCachePath();
+      if (fs.existsSync(cachePath)) {
+        const content = fs.readFileSync(cachePath, 'utf-8');
+        const cache = JSON.parse(content) as CacheSchema;
+
+        // Validate Cache
+        const isExpired = Date.now() - cache.timestamp > CACHE_TTL_MS;
+        const isDifferentRepo = cache.repoKey !== this.getRepoKey();
+
+        if (isExpired || isDifferentRepo) {
+          return;
+        }
+
+        this.contextCache = {
+          repositoryId: cache.data.repositoryId,
+          projectId: cache.data.projectId,
+          labels: new Map(Object.entries(cache.data.labels)),
+          milestones: new Map(Object.entries(cache.data.milestones)),
+          issueTypes: new Map(Object.entries(cache.data.issueTypes)),
+        };
+      }
+    } catch {
+      // Ignore cache load errors, proceed to fetch fresh
+      console.error(
+        '[Info] Failed to load cache from disk, fetching fresh data.',
+      );
+    }
+  }
+
+  private saveCacheToDisk(): void {
+    if (!this.contextCache) return;
+
+    try {
+      const cachePath = this.getCachePath();
+      const dirPath = path.dirname(cachePath);
+
+      if (!fs.existsSync(dirPath)) {
+        fs.mkdirSync(dirPath, { recursive: true });
+      }
+
+      const cache: CacheSchema = {
+        repoKey: this.getRepoKey(),
+        timestamp: Date.now(),
+        data: {
+          repositoryId: this.contextCache.repositoryId,
+          projectId: this.contextCache.projectId,
+          labels: Object.fromEntries(this.contextCache.labels),
+          milestones: Object.fromEntries(this.contextCache.milestones),
+          issueTypes: Object.fromEntries(this.contextCache.issueTypes),
+        },
+      };
+
+      fs.writeFileSync(cachePath, JSON.stringify(cache, null, 2));
+    } catch (error) {
+      console.error('[Warning] Failed to save cache to disk:', error);
+    }
   }
 
   /**
@@ -147,6 +233,13 @@ export class GitHubClient {
       return this.contextCache;
     }
 
+    if (!forceRefresh) {
+      this.loadCacheFromDisk();
+      if (this.contextCache) {
+        return this.contextCache;
+      }
+    }
+
     const { owner, repo } = this.getRepoInfo();
     const configProject = this.config.project;
     const withProject = !!configProject;
@@ -214,6 +307,8 @@ export class GitHubClient {
       milestones,
       issueTypes,
     };
+
+    this.saveCacheToDisk();
 
     return this.contextCache;
   }
