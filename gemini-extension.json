@@ -1,6 +1,6 @@
 {
   "name": "gh-mcp",
-  "version": "0.1.3",
+  "version": "1.0.0",
   "mcpServers": {
     "github": {
       "command": "node",
