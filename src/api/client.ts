@@ -148,8 +148,17 @@ export class GitHubClient {
     }
 
     const { owner, repo } = this.getRepoInfo();
-    const projectNumber = this.config.project?.number || 0;
-    const withProject = !!this.config.project;
+    const configProject = this.config.project;
+    const withProject = !!configProject;
+
+    // Resolve project number if only name is provided
+    let projectNumber = configProject?.number;
+    if (withProject && !projectNumber && configProject.name) {
+      const resolved = await this.resolveProject(owner, configProject.name);
+      projectNumber = resolved.number;
+      // Update config with resolved number for future use in this session
+      configProject.number = projectNumber;
+    }
 
     const result = await this.execute<{
       repository: {
@@ -164,14 +173,14 @@ export class GitHubClient {
     }>(queries.GET_CONTEXT_IDS, {
       owner,
       repo,
-      projectNumber,
-      withProject,
+      projectNumber: projectNumber || 0,
+      withProject: !!projectNumber,
     });
 
     const repoData = result.repository;
 
     let projectId: string | null = null;
-    if (withProject) {
+    if (projectNumber) {
       const orgData = result.organization;
       if (!orgData?.projectV2) {
         throw new ConfigError(
@@ -207,6 +216,51 @@ export class GitHubClient {
     };
 
     return this.contextCache;
+  }
+
+  /**
+   * Resolve a project ID and number by its name
+   */
+  private async resolveProject(
+    owner: string,
+    projectName: string,
+  ): Promise<{ id: string; number: number }> {
+    let after: string | null = null;
+
+    interface ListProjectsResponse {
+      organization: {
+        projectsV2: {
+          nodes: Array<{ id: string; number: number; title: string }>;
+          pageInfo: { hasNextPage: boolean; endCursor: string };
+        };
+      };
+    }
+
+    while (true) {
+      const result: ListProjectsResponse =
+        await this.execute<ListProjectsResponse>(queries.LIST_PROJECTS, {
+          owner,
+          after,
+        });
+
+      const projects = result.organization.projectsV2;
+      const match = projects.nodes.find(
+        (p) => p.title.toLowerCase() === projectName.toLowerCase(),
+      );
+
+      if (match) {
+        return { id: match.id, number: match.number };
+      }
+
+      if (!projects.pageInfo.hasNextPage) {
+        break;
+      }
+      after = projects.pageInfo.endCursor;
+    }
+
+    throw new ConfigError(
+      `Project with name "${projectName}" not found in organization "${owner}"`,
+    );
   }
 
   /**

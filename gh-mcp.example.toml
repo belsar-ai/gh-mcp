@@ -5,7 +5,12 @@
 organization = "your-org-or-username"
 repository = "your-repo-name"
 
-# Optional: Project board integration
-# [project]
-# number = 1
-# current_milestone = "v1.0"
+# Optional: Project and Milestone configuration
+[project]
+# The name of your GitHub Project (V2) board.
+# If provided, issues created will be added to this project.
+name = "My Project"
+
+# The default milestone to apply to new issues (e.g., "v1.0", "Sprint 23").
+# If provided, this milestone will be automatically set.
+current_milestone = "Q1 2024 Roadmap"

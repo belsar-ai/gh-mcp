@@ -99,6 +99,24 @@ export const GET_CONTEXT_IDS = `
   }
 `;
 
+export const LIST_PROJECTS = `
+  query ListProjects($owner: String!, $after: String) {
+    organization(login: $owner) {
+      projectsV2(first: 100, after: $after) {
+        nodes {
+          id
+          number
+          title
+        }
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
+      }
+    }
+  }
+`;
+
 export const SEARCH_ISSUES = `
   query SearchIssues($query: String!) {
     search(query: $query, type: ISSUE, first: 100) {

@@ -9,7 +9,7 @@ export interface RepoConfig {
 
 export interface ProjectConfig {
   name?: string;
-  number: number;
+  number?: number;
   current_milestone?: string;
 }
 

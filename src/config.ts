@@ -79,10 +79,10 @@ export function loadConfig(forceReload = false): GhMcpConfig {
       },
     };
 
-    if (projectData?.number) {
+    if (projectData) {
       cachedConfig.project = {
         name: projectData.name as string | undefined,
-        number: projectData.number as number,
+        number: undefined,
         current_milestone: projectData.current_milestone as string | undefined,
       };
     }
