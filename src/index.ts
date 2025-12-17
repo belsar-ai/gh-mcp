@@ -181,7 +181,10 @@ SEARCH TIPS:
             textResult =
               `Found ${result.length} issues:\n` +
               (result as Array<{ number: number; title: string; url?: string }>)
-                .map((item) => `- #${item.number}: ${item.title}${item.url ? ` (${item.url})` : ''}`)
+                .map(
+                  (item) =>
+                    `- #${item.number}: ${item.title}${item.url ? ` (${item.url})` : ''}`,
+                )
                 .join('\n');
           } else if (
             typeof result === 'object' &&
@@ -190,7 +193,11 @@ SEARCH TIPS:
             'title' in result
           ) {
             // Single GitHub issue
-            const item = result as { number: number; title: string; url?: string };
+            const item = result as {
+              number: number;
+              title: string;
+              url?: string;
+            };
             textResult = `Issue #${item.number}: ${item.title}${item.url ? `\n${item.url}` : ''}`;
           } else {
             // Fallback: JSON
@@ -207,7 +214,7 @@ SEARCH TIPS:
 
           if (errorMessage.includes('ConfigError')) {
             finalMessage +=
-              '\n\nConfiguration issue. Check gh-mcp.toml and GITHUB_TOKEN.';
+              '\n\nConfiguration issue. Check gh-mcp.toml and GITHUB_MCP_PAT.';
           }
 
           return {

@@ -1,5 +1,5 @@
 # gh-mcp Configuration
-# Copy this file to gh-mcp.toml in your project root
+# Copy this file to .mcp-config/gh-mcp.toml in your project root
 
 [repo]
 organization = "your-org-or-username"

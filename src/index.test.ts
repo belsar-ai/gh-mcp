@@ -24,27 +24,19 @@ describe('discoverGitHubToken', () => {
     vi.restoreAllMocks();
   });
 
-  it('should use GITHUB_TOKEN environment variable when available', () => {
-    process.env.GITHUB_TOKEN = 'env-token';
+  it('should use GITHUB_MCP_PAT environment variable when available', () => {
+    process.env.GITHUB_MCP_PAT = 'env-token';
     const token = discoverGitHubToken();
     expect(token).toBe('env-token');
   });
 
-  it('should use GH_TOKEN environment variable when available', () => {
-    delete process.env.GITHUB_TOKEN;
-    process.env.GH_TOKEN = 'gh-cli-token';
-    const token = discoverGitHubToken();
-    expect(token).toBe('gh-cli-token');
-  });
-
   it('should use token from ~/.gemini/.env', () => {
-    delete process.env.GITHUB_TOKEN;
-    delete process.env.GH_TOKEN;
+    delete process.env.GITHUB_MCP_PAT;
 
     vi.mocked(os.homedir).mockReturnValue('/home/testuser');
     vi.mocked(fs.existsSync).mockReturnValue(true);
     vi.mocked(fs.readFileSync).mockReturnValue(
-      'GITHUB_TOKEN=file-token\nOTHER_VAR=foo',
+      'GITHUB_MCP_PAT=file-token\nOTHER_VAR=foo',
     );
 
     const token = discoverGitHubToken();
@@ -53,20 +45,18 @@ describe('discoverGitHubToken', () => {
   });
 
   it('should handle quoted token in ~/.gemini/.env', () => {
-    delete process.env.GITHUB_TOKEN;
-    delete process.env.GH_TOKEN;
+    delete process.env.GITHUB_MCP_PAT;
 
     vi.mocked(os.homedir).mockReturnValue('/home/testuser');
     vi.mocked(fs.existsSync).mockReturnValue(true);
-    vi.mocked(fs.readFileSync).mockReturnValue('GITHUB_TOKEN="quoted-token"');
+    vi.mocked(fs.readFileSync).mockReturnValue('GITHUB_MCP_PAT="quoted-token"');
 
     const token = discoverGitHubToken();
     expect(token).toBe('quoted-token');
   });
 
   it('should return null if no token found', () => {
-    delete process.env.GITHUB_TOKEN;
-    delete process.env.GH_TOKEN;
+    delete process.env.GITHUB_MCP_PAT;
     vi.mocked(fs.existsSync).mockReturnValue(false);
     vi.mocked(os.homedir).mockReturnValue('/home/testuser');
 

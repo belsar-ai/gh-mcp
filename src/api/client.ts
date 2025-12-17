@@ -23,8 +23,8 @@ export class GitHubClient {
     const token = discoverGitHubToken();
     if (!token) {
       throw new ConfigError(
-        'GitHub token not found. Set GITHUB_TOKEN or GH_TOKEN environment variable, ' +
-          'or add GITHUB_TOKEN to ~/.gemini/.env',
+        'GitHub token not found. Set GITHUB_MCP_PAT environment variable, ' +
+          'or add GITHUB_MCP_PAT to ~/.gemini/.env',
       );
     }
     this.token = token;
@@ -49,7 +49,9 @@ export class GitHubClient {
     });
 
     if (!response.ok) {
-      throw new Error(`GitHub API error: ${response.status} ${response.statusText}`);
+      throw new Error(
+        `GitHub API error: ${response.status} ${response.statusText}`,
+      );
     }
 
     const result = (await response.json()) as GraphQLResponse<T>;
@@ -85,10 +87,7 @@ export class GitHubClient {
   /**
    * List issues from the repository
    */
-  async listIssues(
-    limit = 10,
-    openOnly = true,
-  ): Promise<GitHubIssue[]> {
+  async listIssues(limit = 10, openOnly = true): Promise<GitHubIssue[]> {
     const { owner, repo } = this.getRepoInfo();
     const result = await this.execute<{
       repository: { issues: { nodes: GitHubIssue[] } };
@@ -232,7 +231,8 @@ export class GitHubClient {
 
     // Resolve milestone ID
     let milestoneId: string | undefined;
-    const milestoneName = opts.milestone || this.config.project?.current_milestone;
+    const milestoneName =
+      opts.milestone || this.config.project?.current_milestone;
     if (milestoneName) {
       milestoneId = context.milestones.get(milestoneName);
     }
@@ -359,7 +359,10 @@ export class GitHubClient {
     }
 
     if (labelIds.length > 0) {
-      await this.execute(queries.REMOVE_LABELS_FROM_ISSUE, { issueId, labelIds });
+      await this.execute(queries.REMOVE_LABELS_FROM_ISSUE, {
+        issueId,
+        labelIds,
+      });
     }
   }
 
