@@ -200,10 +200,13 @@ export class GitHubClient {
    * Get repository owner and name from config
    */
   getRepoInfo(): { owner: string; repo: string } {
-    const config = this.getConfig();
+    if (!this.config) {
+      this.config = loadConfig();
+    }
+
     return {
-      owner: config.repo.organization,
-      repo: config.repo.repository,
+      owner: this.config?.repo.organization ?? '<OWNER>',
+      repo: this.config?.repo.repository ?? '<REPO>',
     };
   }
 
@@ -211,6 +214,7 @@ export class GitHubClient {
    * List issues from the repository
    */
   async listIssues(limit = 10, openOnly = true): Promise<GitHubIssue[]> {
+    this.getConfig(); // Ensure config exists before proceeding
     const { owner, repo } = this.getRepoInfo();
     const result = await this.execute<{
       repository: { issues: { nodes: GitHubIssue[] } };
@@ -227,6 +231,7 @@ export class GitHubClient {
    * Get a single issue by number
    */
   async getIssue(number: number): Promise<GitHubIssue | null> {
+    this.getConfig(); // Ensure config exists before proceeding
     const { owner, repo } = this.getRepoInfo();
     const result = await this.execute<{
       repository: { issue: GitHubIssue | null };
@@ -238,6 +243,7 @@ export class GitHubClient {
    * Get issue ID by number
    */
   async getIssueId(number: number): Promise<string> {
+    this.getConfig(); // Ensure config exists before proceeding
     const { owner, repo } = this.getRepoInfo();
     const result = await this.execute<{
       repository: { issue: { id: string } | null };
@@ -253,6 +259,7 @@ export class GitHubClient {
    * Search issues using GitHub search syntax
    */
   async searchIssues(query: string): Promise<GitHubIssue[]> {
+    this.getConfig(); // Ensure config exists before proceeding
     const { owner, repo } = this.getRepoInfo();
     const fullQuery = `repo:${owner}/${repo} ${query}`;
     const result = await this.execute<{
@@ -471,6 +478,7 @@ export class GitHubClient {
     number: number,
     opts: { title?: string; body?: string; state?: 'OPEN' | 'CLOSED' },
   ): Promise<GitHubIssue> {
+    this.getConfig(); // Ensure config exists
     const issueId = await this.getIssueId(number);
 
     const result = await this.execute<{
@@ -489,6 +497,7 @@ export class GitHubClient {
    * Delete an issue (and its subtasks)
    */
   async deleteIssue(number: number): Promise<{ deleted: number }> {
+    this.getConfig(); // Ensure config exists
     const { owner, repo } = this.getRepoInfo();
 
     // Find subtasks
@@ -518,6 +527,7 @@ export class GitHubClient {
    * Add labels to an issue
    */
   async addLabels(number: number, labelNames: string[]): Promise<void> {
+    this.getConfig(); // Ensure config exists
     const context = await this.getContextIds();
     const issueId = await this.getIssueId(number);
 
@@ -536,6 +546,7 @@ export class GitHubClient {
    * Remove labels from an issue
    */
   async removeLabels(number: number, labelNames: string[]): Promise<void> {
+    this.getConfig(); // Ensure config exists
     const context = await this.getContextIds();
     const issueId = await this.getIssueId(number);
 
@@ -557,6 +568,7 @@ export class GitHubClient {
    * Get available labels
    */
   async getLabels(): Promise<string[]> {
+    this.getConfig(); // Ensure config exists
     const context = await this.getContextIds();
     return Array.from(context.labels.keys());
   }
@@ -565,6 +577,7 @@ export class GitHubClient {
    * Get available milestones
    */
   async getMilestones(): Promise<string[]> {
+    this.getConfig(); // Ensure config exists
     const context = await this.getContextIds();
     return Array.from(context.milestones.keys());
   }
@@ -573,6 +586,7 @@ export class GitHubClient {
    * Get available issue types
    */
   async getIssueTypes(): Promise<string[]> {
+    this.getConfig(); // Ensure config exists
     const context = await this.getContextIds();
     return Array.from(context.issueTypes.keys());
   }
@@ -581,7 +595,9 @@ export class GitHubClient {
    * Get current milestone from config
    */
   getCurrentMilestone(): string | undefined {
-    const config = this.getConfig();
-    return config.project?.current_milestone;
+    if (!this.config) {
+      this.config = loadConfig();
+    }
+    return this.config?.project?.current_milestone;
   }
 }
