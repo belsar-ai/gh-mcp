@@ -32,20 +32,55 @@ interface CacheSchema {
  * GitHub GraphQL API Client
  */
 export class GitHubClient {
-  private token: string;
-  private config: GhMcpConfig;
+  private token: string | null = null;
+  private config: GhMcpConfig | null = null;
   private contextCache: ContextData | null = null;
 
   constructor() {
-    const token = discoverGitHubToken();
-    if (!token) {
+    // Lazy initialization - don't load or check anything in constructor
+  }
+
+  /**
+   * Get the GitHub token, trying to discover it if missing.
+   * Throws ConfigError if not found.
+   */
+  private getToken(): string {
+    if (!this.token) {
+      this.token = discoverGitHubToken();
+    }
+
+    if (!this.token) {
       throw new ConfigError(
-        'GitHub token not found. Set GITHUB_MCP_PAT environment variable, ' +
-          'or add GITHUB_MCP_PAT to ~/.gemini/.env',
+        'GitHub token not found. Please set the GITHUB_MCP_PAT environment variable, ' +
+          'or add GITHUB_MCP_PAT to your ~/.gemini/.env file.',
       );
     }
-    this.token = token;
-    this.config = loadConfig();
+
+    return this.token;
+  }
+
+  /**
+   * Get the current config, trying to load it if missing.
+   * Throws ConfigError if still not found.
+   */
+  private getConfig(): GhMcpConfig {
+    if (!this.config) {
+      this.config = loadConfig();
+    }
+
+    if (!this.config) {
+      throw new ConfigError(
+        "Not currently in a repository with a '.mcp-config/gh-mcp.toml' configuration.\n" +
+          "To use this tool here, please create '.mcp-config/gh-mcp.toml' with:\n\n" +
+          '```toml\n' +
+          '[repo]\n' +
+          'organization = "<OWNER>"\n' +
+          'repository = "<REPO>"\n' +
+          '```',
+      );
+    }
+
+    return this.config;
   }
 
   private getCachePath(): string {
@@ -124,10 +159,11 @@ export class GitHubClient {
     query: string,
     variables?: Record<string, unknown>,
   ): Promise<T> {
+    const token = this.getToken();
     const response = await fetch(GITHUB_GRAPHQL_URL, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${this.token}`,
+        Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
         'User-Agent': 'gh-mcp/0.1.0',
       },
@@ -164,9 +200,10 @@ export class GitHubClient {
    * Get repository owner and name from config
    */
   getRepoInfo(): { owner: string; repo: string } {
+    const config = this.getConfig();
     return {
-      owner: this.config.repo.organization,
-      repo: this.config.repo.repository,
+      owner: config.repo.organization,
+      repo: config.repo.repository,
     };
   }
 
@@ -241,7 +278,8 @@ export class GitHubClient {
     }
 
     const { owner, repo } = this.getRepoInfo();
-    const configProject = this.config.project;
+    const config = this.getConfig();
+    const configProject = config.project;
     const withProject = !!configProject;
 
     // Resolve project number if only name is provided
@@ -370,6 +408,7 @@ export class GitHubClient {
     parentIssueId?: string;
   }): Promise<GitHubIssue> {
     const context = await this.getContextIds();
+    const config = this.getConfig();
 
     // Resolve label IDs
     const labelIds: string[] = [];
@@ -380,8 +419,7 @@ export class GitHubClient {
 
     // Resolve milestone ID
     let milestoneId: string | undefined;
-    const milestoneName =
-      opts.milestone || this.config.project?.current_milestone;
+    const milestoneName = opts.milestone || config.project?.current_milestone;
     if (milestoneName) {
       milestoneId = context.milestones.get(milestoneName);
     }
@@ -543,6 +581,7 @@ export class GitHubClient {
    * Get current milestone from config
    */
   getCurrentMilestone(): string | undefined {
-    return this.config.project?.current_milestone;
+    const config = this.getConfig();
+    return config.project?.current_milestone;
   }
 }

@@ -35,28 +35,17 @@ let cachedConfigPath: string | null = null;
 
 /**
  * Load config from gh-mcp.toml, walking up from cwd.
- * Throws ConfigError if no file found.
+ * Throws ConfigError only on parse/validation errors.
+ * Returns null if no file found.
  */
-export function loadConfig(forceReload = false): GhMcpConfig {
+export function loadConfig(forceReload = false): GhMcpConfig | null {
   if (cachedConfig && !forceReload) {
     return cachedConfig;
   }
 
   const configPath = findConfigFile(process.cwd());
   if (!configPath) {
-    throw new ConfigError(
-      `Configuration file '.mcp-config/${CONFIG_FILENAME}' not found.\n` +
-        `Please create a '.mcp-config/${CONFIG_FILENAME}' file with the following structure:\n\n` +
-        '```toml\n' +
-        '[repo]\n' +
-        'organization = "<YOUR_GITHUB_ORG_OR_USERNAME>"\n' +
-        'repository = "<YOUR_REPO_NAME>"\n\n' +
-        '# Optional\n' +
-        '[project]\n' +
-        'number = <PROJECT_NUMBER>\n' +
-        'current_milestone = "<MILESTONE_TITLE>"\n' +
-        '```',
-    );
+    return null;
   }
 
   try {
@@ -110,5 +99,5 @@ export function getConfigPath(): string | null {
  */
 export function getCurrentMilestone(): string | undefined {
   const config = loadConfig();
-  return config.project?.current_milestone;
+  return config?.project?.current_milestone;
 }

@@ -210,15 +210,21 @@ SEARCH TIPS:
         } catch (error) {
           const errorMessage =
             error instanceof Error ? error.message : String(error);
-          let finalMessage = `Script Execution Error: ${errorMessage}`;
 
           if (errorMessage.includes('ConfigError')) {
-            finalMessage +=
-              '\n\nConfiguration issue. Check gh-mcp.toml and GITHUB_MCP_PAT.';
+            return {
+              content: [{ type: 'text', text: errorMessage }],
+              isError: true,
+            };
           }
 
           return {
-            content: [{ type: 'text', text: finalMessage }],
+            content: [
+              {
+                type: 'text',
+                text: `Script Execution Error: ${errorMessage}`,
+              },
+            ],
             isError: true,
           };
         }
