@@ -65,7 +65,7 @@ github.getIssue(number)                        // Get single issue by number
 github.searchIssues(query)                     // Search with GitHub syntax (auto-scoped to repo)
 github.createIssue({ title, body?, labels?, milestone?, issueType?, parentIssueId? })
 github.updateIssue(number, { title?, body?, state? })  // state: 'OPEN' | 'CLOSED'
-github.deleteIssue(number)                     // Deletes issue and its subtasks
+github.deleteIssue(number)                     // Delete single issue by number
 
 // LABELS
 github.getLabels()                             // Get available labels

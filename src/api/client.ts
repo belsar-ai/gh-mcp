@@ -494,33 +494,14 @@ export class GitHubClient {
   }
 
   /**
-   * Delete an issue (and its subtasks)
+   * Delete an issue
    */
   async deleteIssue(number: number): Promise<{ deleted: number }> {
     this.getConfig(); // Ensure config exists
-    const { owner, repo } = this.getRepoInfo();
+    const issueId = await this.getIssueId(number);
+    await this.execute(queries.DELETE_ISSUE, { issueId });
 
-    // Find subtasks
-    const subtaskQuery = `repo:${owner}/${repo} "Subtask of #${number}" is:issue`;
-    const subtaskResult = await this.execute<{
-      search: { nodes: Array<{ id: string; number: number }> };
-    }>(queries.SEARCH_ISSUES, { query: subtaskQuery });
-
-    let deletedCount = 0;
-
-    // Delete subtasks first
-    for (const subtask of subtaskResult.search.nodes) {
-      if (subtask?.id) {
-        await this.execute(queries.DELETE_ISSUE, { issueId: subtask.id });
-        deletedCount++;
-      }
-    }
-
-    // Delete parent
-    const parentId = await this.getIssueId(number);
-    await this.execute(queries.DELETE_ISSUE, { issueId: parentId });
-
-    return { deleted: deletedCount + 1 };
+    return { deleted: 1 };
   }
 
   /**
