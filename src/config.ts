@@ -52,27 +52,24 @@ export function loadConfig(forceReload = false): GhMcpConfig | null {
     const content = fs.readFileSync(configPath, 'utf-8');
     const data = parse(content) as Record<string, unknown>;
 
-    const repoData = data.repo as Record<string, string> | undefined;
-    const projectData = data.project as Record<string, unknown> | undefined;
+    const requiredData = data.required as Record<string, string> | undefined;
+    const optionalData = data.optional as Record<string, unknown> | undefined;
 
-    if (!repoData?.organization || !repoData?.repository) {
-      throw new ConfigError(
-        'Missing [repo] organization or repository in gh-mcp.toml',
-      );
+    if (!requiredData?.repo_url) {
+      throw new ConfigError('Missing [required] repo_url in gh-mcp.toml');
     }
 
     cachedConfig = {
-      repo: {
-        organization: repoData.organization,
-        repository: repoData.repository,
+      required: {
+        repo_url: requiredData.repo_url,
       },
     };
 
-    if (projectData) {
-      cachedConfig.project = {
-        name: projectData.name as string | undefined,
-        number: undefined,
-        current_milestone: projectData.current_milestone as string | undefined,
+    if (optionalData) {
+      cachedConfig.optional = {
+        project_name: optionalData.project_name as string | undefined,
+        project_number: undefined,
+        current_milestone: optionalData.current_milestone as string | undefined,
       };
     }
 
@@ -99,5 +96,5 @@ export function getConfigPath(): string | null {
  */
 export function getCurrentMilestone(): string | undefined {
   const config = loadConfig();
-  return config?.project?.current_milestone;
+  return config?.optional?.current_milestone;
 }

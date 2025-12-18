@@ -90,18 +90,43 @@ export const GET_CONTEXT_IDS = `
           name
         }
       }
-    }
-    organization(login: $owner) @include(if: $withProject) {
-      projectV2(number: $projectNumber) {
-        id
+      owner @include(if: $withProject) {
+        ... on Organization {
+          projectV2(number: $projectNumber) {
+            id
+          }
+        }
+        ... on User {
+          projectV2(number: $projectNumber) {
+            id
+          }
+        }
       }
     }
   }
 `;
 
-export const LIST_PROJECTS = `
-  query ListProjects($owner: String!, $after: String) {
+export const LIST_PROJECTS_ORG = `
+  query ListProjectsOrg($owner: String!, $after: String) {
     organization(login: $owner) {
+      projectsV2(first: 100, after: $after) {
+        nodes {
+          id
+          number
+          title
+        }
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
+      }
+    }
+  }
+`;
+
+export const LIST_PROJECTS_USER = `
+  query ListProjectsUser($owner: String!, $after: String) {
+    user(login: $owner) {
       projectsV2(first: 100, after: $after) {
         nodes {
           id

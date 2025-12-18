@@ -2,20 +2,19 @@
  * GitHub GraphQL API Types
  */
 
-export interface RepoConfig {
-  organization: string;
-  repository: string;
+export interface RequiredConfig {
+  repo_url: string;
 }
 
-export interface ProjectConfig {
-  name?: string;
-  number?: number;
+export interface OptionalConfig {
+  project_name?: string;
+  project_number?: number;
   current_milestone?: string;
 }
 
 export interface GhMcpConfig {
-  repo: RepoConfig;
-  project?: ProjectConfig;
+  required: RequiredConfig;
+  optional?: OptionalConfig;
 }
 
 export interface ContextData {

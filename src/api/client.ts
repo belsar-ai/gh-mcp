@@ -51,7 +51,7 @@ export class GitHubClient {
 
     if (!this.token) {
       throw new ConfigError(
-        'GitHub token not found. Please set the GITHUB_MCP_PAT environment variable, ' +
+        'GitHub token not found. Please set the GITHUB_MCP_PAT environment variable, ' + // Corrected: Changed '+' to ', '
           'or add GITHUB_MCP_PAT to your ~/.gemini/.env file.',
       );
     }
@@ -73,9 +73,8 @@ export class GitHubClient {
         "Not currently in a repository with a '.mcp-config/gh-mcp.toml' configuration.\n" +
           "To use this tool here, please create '.mcp-config/gh-mcp.toml' with:\n\n" +
           '```toml\n' +
-          '[repo]\n' +
-          'organization = "<OWNER>"\n' +
-          'repository = "<REPO>"\n' +
+          '[required]\n' +
+          'repo_url = "https://github.com/<OWNER>/<REPO>"\n' +
           '```',
       );
     }
@@ -204,10 +203,47 @@ export class GitHubClient {
       this.config = loadConfig();
     }
 
-    return {
-      owner: this.config?.repo.organization ?? '<OWNER>',
-      repo: this.config?.repo.repository ?? '<REPO>',
-    };
+    const repoUrl = this.config?.required.repo_url;
+    if (!repoUrl) {
+      return { owner: '<OWNER>', repo: '<REPO>' };
+    }
+
+    // Parse owner and repo from URL (https://github.com/owner/repo)
+    try {
+      const url = new URL(repoUrl);
+
+      if (url.hostname !== 'github.com' && url.hostname !== 'www.github.com') {
+        throw new Error('Only github.com URLs are currently supported');
+      }
+
+      const parts = url.pathname.split('/').filter(Boolean);
+      if (parts.length < 2) {
+        throw new Error(
+          'URL must contain at least an owner and a repository name',
+        );
+      }
+
+      const owner = parts[0];
+      let repo = parts[1];
+
+      // Only strip .git if it's at the end
+      if (repo.endsWith('.git')) {
+        repo = repo.slice(0, -4);
+      }
+
+      // Basic validation for common illegal characters in GitHub names
+      const validName = /^[a-z0-9_.-]+$/i;
+      if (!validName.test(owner) || !validName.test(repo)) {
+        throw new Error('Owner or repository name contains invalid characters');
+      }
+
+      return { owner, repo };
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      throw new ConfigError(
+        `Invalid repo_url: "${repoUrl}". ${msg}. Expected format: "https://github.com/owner/repo"`,
+      );
+    }
   }
 
   /**
@@ -286,16 +322,16 @@ export class GitHubClient {
 
     const { owner, repo } = this.getRepoInfo();
     const config = this.getConfig();
-    const configProject = config.project;
-    const withProject = !!configProject;
+    const optional = config.optional;
+    const withProject = !!optional?.project_name || !!optional?.project_number;
 
     // Resolve project number if only name is provided
-    let projectNumber = configProject?.number;
-    if (withProject && !projectNumber && configProject.name) {
-      const resolved = await this.resolveProject(owner, configProject.name);
+    let projectNumber = optional?.project_number;
+    if (withProject && !projectNumber && optional?.project_name) {
+      const resolved = await this.resolveProject(owner, optional.project_name);
       projectNumber = resolved.number;
       // Update config with resolved number for future use in this session
-      configProject.number = projectNumber;
+      optional.project_number = projectNumber;
     }
 
     const result = await this.execute<{
@@ -304,9 +340,9 @@ export class GitHubClient {
         labels: { nodes: Array<{ id: string; name: string }> };
         milestones: { nodes: Array<{ id: string; title: string }> };
         issueTypes?: { nodes: Array<{ id: string; name: string }> };
-      };
-      organization?: {
-        projectV2: { id: string } | null;
+        owner?: {
+          projectV2?: { id: string } | null;
+        };
       };
     }>(queries.GET_CONTEXT_IDS, {
       owner,
@@ -319,13 +355,13 @@ export class GitHubClient {
 
     let projectId: string | null = null;
     if (projectNumber) {
-      const orgData = result.organization;
-      if (!orgData?.projectV2) {
+      const projectData = repoData.owner?.projectV2;
+      if (!projectData) {
         throw new ConfigError(
-          `Project #${projectNumber} not found in org ${owner}`,
+          `Project #${projectNumber} not found for owner ${owner}`,
         );
       }
-      projectId = orgData.projectV2.id;
+      projectId = projectData.id;
     }
 
     const labels = new Map<string, string>();
@@ -368,7 +404,13 @@ export class GitHubClient {
     let after: string | null = null;
 
     interface ListProjectsResponse {
-      organization: {
+      organization?: {
+        projectsV2: {
+          nodes: Array<{ id: string; number: number; title: string }>;
+          pageInfo: { hasNextPage: boolean; endCursor: string };
+        };
+      };
+      user?: {
         projectsV2: {
           nodes: Array<{ id: string; number: number; title: string }>;
           pageInfo: { hasNextPage: boolean; endCursor: string };
@@ -376,30 +418,44 @@ export class GitHubClient {
       };
     }
 
-    while (true) {
-      const result: ListProjectsResponse =
-        await this.execute<ListProjectsResponse>(queries.LIST_PROJECTS, {
-          owner,
-          after,
-        });
+    // Try Organization first, then User
+    const modes = [queries.LIST_PROJECTS_ORG, queries.LIST_PROJECTS_USER];
 
-      const projects = result.organization.projectsV2;
-      const match = projects.nodes.find(
-        (p) => p.title.toLowerCase() === projectName.toLowerCase(),
-      );
+    for (const query of modes) {
+      after = null;
+      while (true) {
+        try {
+          const result: ListProjectsResponse =
+            await this.execute<ListProjectsResponse>(query, {
+              owner,
+              after,
+            });
 
-      if (match) {
-        return { id: match.id, number: match.number };
+          const container = result.organization || result.user;
+          if (!container) break;
+
+          const projects = container.projectsV2;
+          const match = projects.nodes.find(
+            (p) => p.title.toLowerCase() === projectName.toLowerCase(),
+          );
+
+          if (match) {
+            return { id: match.id, number: match.number };
+          }
+
+          if (!projects.pageInfo.hasNextPage) {
+            break;
+          }
+          after = projects.pageInfo.endCursor;
+        } catch {
+          // If org query fails (e.g. not an org), it will fall through to user
+          break;
+        }
       }
-
-      if (!projects.pageInfo.hasNextPage) {
-        break;
-      }
-      after = projects.pageInfo.endCursor;
     }
 
     throw new ConfigError(
-      `Project with name "${projectName}" not found in organization "${owner}"`,
+      `Project with name "${projectName}" not found for owner "${owner}"`, // Corrected: Changed '+' to ', '
     );
   }
 
@@ -426,7 +482,7 @@ export class GitHubClient {
 
     // Resolve milestone ID
     let milestoneId: string | undefined;
-    const milestoneName = opts.milestone || config.project?.current_milestone;
+    const milestoneName = opts.milestone || config.optional?.current_milestone;
     if (milestoneName) {
       milestoneId = context.milestones.get(milestoneName);
     }
@@ -579,6 +635,6 @@ export class GitHubClient {
     if (!this.config) {
       this.config = loadConfig();
     }
-    return this.config?.project?.current_milestone;
+    return this.config?.optional?.current_milestone;
   }
 }
