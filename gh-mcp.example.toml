@@ -12,3 +12,7 @@ project_name = "My Project"
 # The default milestone to apply to new issues (e.g., "v1.0", "Sprint 23").
 # If provided, this milestone will be automatically set.
 current_milestone = "Q1 2024 Roadmap"
+
+# NOTE: Metadata (IDs for labels, projects, etc.) is cached in 
+# .mcp-config/gh-mcp-cache.json for performance. To refresh this data 
+# after making changes on GitHub, simply delete that file.

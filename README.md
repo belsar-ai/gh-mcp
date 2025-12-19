@@ -31,9 +31,18 @@ repo_url = "https://github.com/owner/repo"
 # If provided, issues created will be added to this project.
 project_name = "Product Roadmap"
 
-# The default milestone to apply to new issues (e.g., "v1.0", "Sprint 23").
-# If provided, this milestone will be automatically set.
+# Optional: Automatically assign this milestone to new issues
 current_milestone = "Q1 2024 Roadmap"
+```
+
+### 3. Caching
+
+This tool caches repository metadata (IDs for labels, milestones, etc.) in `.mcp-config/gh-mcp-cache.json` to improve performance. This cache persists indefinitely.
+
+If you add new labels or milestones on GitHub and they don't appear in the AI's context, simply delete the cache file to force a refresh:
+
+```bash
+rm .mcp-config/gh-mcp-cache.json
 ```
 
 ## Tools

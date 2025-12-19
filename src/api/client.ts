@@ -14,7 +14,6 @@ import * as queries from './queries.js';
 const GITHUB_GRAPHQL_URL = 'https://api.github.com/graphql';
 const CACHE_DIR = '.mcp-config';
 const CACHE_FILE = 'gh-mcp-cache.json';
-const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 interface CacheSchema {
   repoKey: string;
@@ -99,10 +98,9 @@ export class GitHubClient {
         const cache = JSON.parse(content) as CacheSchema;
 
         // Validate Cache
-        const isExpired = Date.now() - cache.timestamp > CACHE_TTL_MS;
         const isDifferentRepo = cache.repoKey !== this.getRepoKey();
 
-        if (isExpired || isDifferentRepo) {
+        if (isDifferentRepo) {
           return;
         }
 
