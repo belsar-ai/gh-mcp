@@ -21,7 +21,7 @@ export interface ContextData {
   repositoryId: string;
   projectId: string | null;
   labels: Map<string, string>; // Name -> ID
-  milestones: Map<string, string>; // Title -> ID
+  milestones: Map<string, GitHubMilestone>; // Title -> Milestone object
   issueTypes: Map<string, string>; // Name -> ID
 }
 
@@ -48,6 +48,8 @@ export interface GitHubLabel {
 export interface GitHubMilestone {
   id: string;
   title: string;
+  number: number;
+  description?: string;
 }
 
 export interface GitHubIssueType {

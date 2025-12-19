@@ -74,6 +74,8 @@ github.removeLabels(number, ['label1'])        // Remove labels from issue
 
 // CONTEXT
 github.getMilestones()                         // Get open milestones
+github.createMilestone({ title, description?, dueOn?, state? })
+github.updateMilestone(idOrTitle, { title?, description?, dueOn?, state? })
 github.getIssueTypes()                         // Get available issue types (Bug, Feature, etc.)
 github.getContextIds()                         // Get all IDs (labels, milestones, types, project)
 github.getRepoInfo()                           // Get { owner, repo }
@@ -84,7 +86,17 @@ EXAMPLES:
 1. List open issues:
 return await github.listIssues(20);
 
-2. Search for bugs:
+2. Create a milestone and an issue in it:
+const milestone = await github.createMilestone({
+  title: 'v1.0 Release',
+  description: 'Final release of version 1.0'
+});
+return await github.createIssue({
+  title: 'Final QA pass',
+  milestone: milestone.title
+});
+
+3. Search for bugs:
 return await github.searchIssues('is:issue is:open label:Bug');
 
 3. Create issue with type and labels:

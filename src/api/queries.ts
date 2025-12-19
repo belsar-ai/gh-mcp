@@ -82,6 +82,8 @@ export const GET_CONTEXT_IDS = `
         nodes {
           id
           title
+          number
+          description
         }
       }
       issueTypes(first: 20) {

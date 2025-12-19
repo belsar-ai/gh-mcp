@@ -6,12 +6,14 @@ import type {
   GhMcpConfig,
   ContextData,
   GitHubIssue,
+  GitHubMilestone,
   GraphQLResponse,
 } from '../types/github.js';
 import { ConfigError } from '../types/github.js';
 import * as queries from './queries.js';
 
 const GITHUB_GRAPHQL_URL = 'https://api.github.com/graphql';
+const GITHUB_REST_URL = 'https://api.github.com';
 const CACHE_DIR = '.mcp-config';
 const CACHE_FILE = 'gh-mcp-cache.json';
 
@@ -22,7 +24,7 @@ interface CacheSchema {
     repositoryId: string;
     projectId: string | null;
     labels: Record<string, string>;
-    milestones: Record<string, string>;
+    milestones: Record<string, GitHubMilestone>;
     issueTypes: Record<string, string>;
   };
 }
@@ -184,6 +186,41 @@ export class GitHubClient {
   }
 
   /**
+   * Execute a REST API request
+   */
+  private async executeRest<T>(
+    method: string,
+    path: string,
+    body?: unknown,
+  ): Promise<T> {
+    const token = this.getToken();
+    const url = `${GITHUB_REST_URL}${path}`;
+    const response = await fetch(url, {
+      method,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        'User-Agent': 'gh-mcp/0.1.0',
+        Accept: 'application/vnd.github.v3+json',
+      },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+
+    if (!response.ok) {
+      const errorData = (await response.json().catch(() => ({}))) as {
+        message?: string;
+      };
+      throw new Error(
+        `GitHub REST API error: ${response.status} ${response.statusText}${
+          errorData.message ? `: ${errorData.message}` : ''
+        }`,
+      );
+    }
+
+    return (await response.json()) as T;
+  }
+
+  /**
    * Get the current authenticated user
    */
   async getViewer(): Promise<string> {
@@ -336,7 +373,14 @@ export class GitHubClient {
       repository: {
         id: string;
         labels: { nodes: Array<{ id: string; name: string }> };
-        milestones: { nodes: Array<{ id: string; title: string }> };
+        milestones: {
+          nodes: Array<{
+            id: string;
+            title: string;
+            number: number;
+            description?: string;
+          }>;
+        };
         issueTypes?: { nodes: Array<{ id: string; name: string }> };
         owner?: {
           projectV2?: { id: string } | null;
@@ -367,9 +411,14 @@ export class GitHubClient {
       labels.set(label.name, label.id);
     }
 
-    const milestones = new Map<string, string>();
+    const milestones = new Map<string, GitHubMilestone>();
     for (const ms of repoData.milestones.nodes) {
-      milestones.set(ms.title, ms.id);
+      milestones.set(ms.title, {
+        id: ms.id,
+        title: ms.title,
+        number: ms.number,
+        description: ms.description,
+      });
     }
 
     const issueTypes = new Map<string, string>();
@@ -482,7 +531,7 @@ export class GitHubClient {
     let milestoneId: string | undefined;
     const milestoneName = opts.milestone || config.optional?.current_milestone;
     if (milestoneName) {
-      milestoneId = context.milestones.get(milestoneName);
+      milestoneId = context.milestones.get(milestoneName)?.id;
     }
 
     // Resolve issue type ID (case-insensitive)
@@ -615,6 +664,76 @@ export class GitHubClient {
     this.getConfig(); // Ensure config exists
     const context = await this.getContextIds();
     return Array.from(context.milestones.keys());
+  }
+
+  /**
+   * Create a new milestone
+   */
+  async createMilestone(opts: {
+    title: string;
+    description?: string;
+    dueOn?: string;
+    state?: 'open' | 'closed';
+  }): Promise<GitHubMilestone> {
+    const { owner, repo } = this.getRepoInfo();
+    const result = await this.executeRest<GitHubMilestone>(
+      'POST',
+      `/repos/${owner}/${repo}/milestones`,
+      {
+        title: opts.title,
+        description: opts.description,
+        due_on: opts.dueOn,
+        state: opts.state || 'open',
+      },
+    );
+
+    // Refresh context to include new milestone
+    await this.getContextIds(true);
+
+    return result;
+  }
+
+  /**
+   * Update an existing milestone
+   */
+  async updateMilestone(
+    milestoneIdentifier: string | number,
+    opts: {
+      title?: string;
+      description?: string;
+      dueOn?: string;
+      state?: 'open' | 'closed';
+    },
+  ): Promise<GitHubMilestone> {
+    const { owner, repo } = this.getRepoInfo();
+    let milestoneNumber: number;
+
+    if (typeof milestoneIdentifier === 'number') {
+      milestoneNumber = milestoneIdentifier;
+    } else {
+      const context = await this.getContextIds();
+      const milestone = context.milestones.get(milestoneIdentifier);
+      if (!milestone) {
+        throw new Error(`Milestone "${milestoneIdentifier}" not found`);
+      }
+      milestoneNumber = milestone.number;
+    }
+
+    const result = await this.executeRest<GitHubMilestone>(
+      'PATCH',
+      `/repos/${owner}/${repo}/milestones/${milestoneNumber}`,
+      {
+        title: opts.title,
+        description: opts.description,
+        due_on: opts.dueOn,
+        state: opts.state,
+      },
+    );
+
+    // Refresh context to update cached milestone data
+    await this.getContextIds(true);
+
+    return result;
   }
 
   /**
