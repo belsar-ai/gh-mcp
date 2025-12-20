@@ -79,7 +79,8 @@ describe('formatResult', () => {
       milestone: { title: 'v1.0' },
       labels: { nodes: [{ name: 'bug' }] },
     };
-    const formatted = formatResult(issue);
+    // descriptions are hidden by default, so we wrap it to show body
+    const formatted = formatResult({ data: issue, showBody: true });
     expect(formatted).toContain('#123: Test Issue');
     expect(formatted).not.toContain('[OPEN]');
     expect(formatted).not.toContain('(Milestone: v1.0)');

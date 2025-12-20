@@ -11,6 +11,7 @@ import type {
 } from '../types/github.js';
 import { ConfigError } from '../types/github.js';
 import * as queries from './queries.js';
+import { getApiDocs } from './docs.js';
 
 const GITHUB_GRAPHQL_URL = 'https://api.github.com/graphql';
 const GITHUB_REST_URL = 'https://api.github.com';
@@ -285,8 +286,20 @@ export class GitHubClient {
   /**
    * List issues from the repository
    */
-  async listIssues(limit = 10, openOnly = true): Promise<GitHubIssue[]> {
+  async listIssues(
+    limit = 10,
+    openOnly = true,
+    milestone?: string,
+  ): Promise<GitHubIssue[]> {
     this.getConfig(); // Ensure config exists before proceeding
+
+    // If milestone is provided, use search instead for better filtering
+    if (milestone) {
+      return this.searchIssues(
+        `milestone:"${milestone}" ${openOnly ? 'is:open' : ''}`,
+      );
+    }
+
     const { owner, repo } = this.getRepoInfo();
     const result = await this.execute<{
       repository: { issues: { nodes: GitHubIssue[] } };
@@ -758,5 +771,14 @@ export class GitHubClient {
 
     const context = await this.getContextIds();
     return context.milestones.get(name) || null;
+  }
+
+  /**
+   * Returns the API documentation and usage examples.
+   */
+  async help(): Promise<string> {
+    const { owner, repo } = this.getRepoInfo();
+    const milestone = await this.getCurrentMilestone();
+    return getApiDocs(owner, repo, milestone?.title);
   }
 }

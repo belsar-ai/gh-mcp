@@ -47,121 +47,14 @@ Enables complex workflows, batch operations, and agentic behaviors in a single t
 
   private async getToolsDefinitions() {
     const { owner, repo } = this.client.getRepoInfo();
-    const milestone = await this.client.getCurrentMilestone();
-    const currentMilestone = milestone?.title;
 
     return [
       {
         name: 'execute_github_script',
-        description: `Execute JavaScript to interact with GitHub Issues for ${owner}/${repo}.
-The script has access to a global 'github' object. Use top-level 'await'. Return the result you want to see.
-
-CONFIGURED REPOSITORY: ${owner}/${repo}
-${currentMilestone ? `DEFAULT MILESTONE: ${currentMilestone}` : ''}
-
-CRITICAL - LIST ISSUES:
-When user asks to see issues, ALWAYS use a script that returns the issues directly. Triggers:
-- "show me issues in milestone X"
-- "list issues"
-- "what issues are open"
-
-The output is self-explanatory. Your ONLY response must be "Done." - DO NOT summarize, DO NOT analyze, and DO NOT invent follow-up tasks.
-
-LIST ISSUES - SUMMARY VS FULL:
-- "list issues": Return { data: issues, showBody: false }. Shows labels and subtasks, but HIDES descriptions. THIS IS THE PREFERRED DEFAULT.
-- "list issues and descriptions": Return issues directly (or { data: issues, showBody: true }). Shows labels, subtasks, AND descriptions.
-- Only show descriptions if the user explicitly asks for "descriptions", "details", or "full body".
-- Always include subtasks in the output when listing issues.
-
-AVAILABLE API (on 'github' object):
-
-// ISSUES
-github.listIssues(limit?, openOnly?)           // List issues (default: 10, open only)
-github.getIssue(number)                        // Get single issue by number
-github.searchIssues(query)                     // Search with GitHub syntax (auto-scoped to repo)
-github.createIssue({ title, body?, labels?, milestone?, issueType?, parentIssueId? })
-github.updateIssue(number, { title?, body?, state? })  // state: 'OPEN' | 'CLOSED'
-github.deleteIssue(number)                     // Delete single issue by number
-
-// LABELS
-github.getLabels()                             // Get available labels
-github.addLabels(number, ['label1', 'label2']) // Add labels to issue
-github.removeLabels(number, ['label1'])        // Remove labels from issue
-
-// CONTEXT
-github.getMilestones()                         // Get open milestones
-github.createMilestone({ title, description?, dueOn?, state? })
-github.updateMilestone(idOrTitle, { title?, description?, dueOn?, state? })
-github.getIssueTypes()                         // Get available issue types (Bug, Feature, etc.)
-github.getContextIds()                         // Get all IDs (labels, milestones, types, project)
-github.getRepoInfo()                           // Get { owner, repo }
-github.getCurrentMilestone()                   // Get default milestone from config
-
-EXAMPLES:
-
-1. List open issues (summary - preferred):
-const issues = await github.listIssues(20);
-return { data: issues, showBody: false };
-
-2. List issues with full descriptions:
-return await github.listIssues(10);
-
-3. Create a milestone and an issue in it:
-const milestone = await github.createMilestone({
-  title: 'v1.0 Release',
-  description: 'Final release of version 1.0'
-});
-return await github.createIssue({
-  title: 'Final QA pass',
-  milestone: milestone.title
-});
-
-3. Search for bugs:
-return await github.searchIssues('is:issue is:open label:Bug');
-
-3. Create issue with type and labels:
-return await github.createIssue({
-  title: 'Fix login bug',
-  body: 'Users cannot log in with SSO',
-  labels: ['Bug', 'P1'],
-  issueType: 'Bug'
-});
-
-4. Create issue with subtasks:
-const parent = await github.createIssue({
-  title: 'Implement dark mode',
-  body: 'Add dark mode support',
-  issueType: 'Feature'
-});
-await github.createIssue({
-  title: 'Design dark color palette',
-  body: \`Subtask of #\${parent.number}\`,
-  parentIssueId: parent.id
-});
-return parent;
-
-5. Batch close issues:
-const issues = await github.searchIssues('is:issue is:open label:stale');
-for (const issue of issues) {
-  await github.updateIssue(issue.number, { state: 'CLOSED' });
-}
-return \`Closed \${issues.length} stale issues\`;
-
-6. Get available labels and issue types:
-const labels = await github.getLabels();
-const types = await github.getIssueTypes();
-return { labels, types };
-
-SEARCH TIPS:
-- "is:issue is:open" - open issues
-- "is:issue is:closed" - closed issues
-- "label:Bug" - issues with Bug label
-- "milestone:v1.0" - issues in milestone
-- "author:username" - issues by author
-- "assignee:username" - assigned issues
-- "created:>2024-01-01" - created after date
-- "updated:<2024-01-01" - not updated since date
-`,
+        description: `Execute JavaScript to manage GitHub issues for ${owner}/${repo}.
+API: listIssues(limit?, openOnly?, milestone?), getIssue(number), searchIssues(query), createIssue({...}), updateIssue(number, {...}), getCurrentMilestone(), help().
+CRITICAL: When listing issues, ALWAYS return them directly (e.g. 'const ms = await github.getCurrentMilestone(); return github.listIssues(20, true, ms?.title);') and respond ONLY with "Done.". HIDE descriptions unless explicitly asked.
+For the full API, examples, and search tips, execute: return github.help();`,
         inputSchema: {
           type: 'object',
           properties: {
@@ -251,7 +144,7 @@ interface ResultWithDisplayOptions {
  */
 export function formatResult(result: unknown): string {
   let data = result;
-  let showBody = true;
+  let showBody = false;
 
   if (
     typeof result === 'object' &&
@@ -357,6 +250,10 @@ function formatIssue(issue: GitHubIssue, showBody = true): string {
     output += `\nLabels: ${labels}`;
   }
 
+  if (showBody && issue.body) {
+    output += `\n\n${issue.body}`;
+  }
+
   if (issue.subIssues?.nodes && issue.subIssues.nodes.length > 0) {
     const subtasks = issue.subIssues.nodes
       .map((si) => `  - #${si.number}: ${si.title}`)
@@ -364,9 +261,6 @@ function formatIssue(issue: GitHubIssue, showBody = true): string {
     output += `\nSubtasks:\n${subtasks}`;
   }
 
-  if (showBody && issue.body) {
-    output += `\n\n${issue.body}`;
-  }
   return output;
 }
 
