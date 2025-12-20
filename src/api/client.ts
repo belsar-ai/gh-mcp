@@ -165,6 +165,7 @@ export class GitHubClient {
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
         'User-Agent': 'gh-mcp/0.1.0',
+        'GraphQL-Features': 'sub_issues',
       },
       body: JSON.stringify({ query, variables: variables || {} }),
     });
@@ -748,10 +749,14 @@ export class GitHubClient {
   /**
    * Get current milestone from config
    */
-  getCurrentMilestone(): string | undefined {
+  async getCurrentMilestone(): Promise<GitHubMilestone | null> {
     if (!this.config) {
       this.config = loadConfig();
     }
-    return this.config?.optional?.current_milestone;
+    const name = this.config?.optional?.current_milestone;
+    if (!name) return null;
+
+    const context = await this.getContextIds();
+    return context.milestones.get(name) || null;
   }
 }

@@ -29,6 +29,14 @@ export const GET_ISSUES = `
               name
             }
           }
+          subIssues(first: 20) {
+            nodes {
+              id
+              number
+              title
+              state
+            }
+          }
         }
       }
     }
@@ -51,6 +59,14 @@ export const GET_ISSUE = `
         labels(first: 10) {
           nodes {
             name
+          }
+        }
+        subIssues(first: 20) {
+          nodes {
+            id
+            number
+            title
+            state
           }
         }
       }
@@ -161,6 +177,14 @@ export const SEARCH_ISSUES = `
           labels(first: 10) {
             nodes {
               name
+            }
+          }
+          subIssues(first: 20) {
+            nodes {
+              id
+              number
+              title
+              state
             }
           }
         }

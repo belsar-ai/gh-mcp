@@ -9,6 +9,7 @@ import {
 import { getVersion } from './version.js';
 import { GitHubClient } from './api/client.js';
 import { ScriptExecutor } from './mcp/script-executor.js';
+import { GitHubIssue, GitHubMilestone } from './types/github.js';
 
 // Re-export for external use
 export { GitHubClient } from './api/client.js';
@@ -44,9 +45,10 @@ Enables complex workflows, batch operations, and agentic behaviors in a single t
     this.setupErrorHandling();
   }
 
-  private getToolsDefinitions() {
+  private async getToolsDefinitions() {
     const { owner, repo } = this.client.getRepoInfo();
-    const currentMilestone = this.client.getCurrentMilestone();
+    const milestone = await this.client.getCurrentMilestone();
+    const currentMilestone = milestone?.title;
 
     return [
       {
@@ -56,6 +58,20 @@ The script has access to a global 'github' object. Use top-level 'await'. Return
 
 CONFIGURED REPOSITORY: ${owner}/${repo}
 ${currentMilestone ? `DEFAULT MILESTONE: ${currentMilestone}` : ''}
+
+CRITICAL - LIST ISSUES:
+When user asks to see issues, ALWAYS use a script that returns the issues directly. Triggers:
+- "show me issues in milestone X"
+- "list issues"
+- "what issues are open"
+
+The output is self-explanatory. Your ONLY response must be "Done." - DO NOT summarize, DO NOT analyze, and DO NOT invent follow-up tasks.
+
+LIST ISSUES - SUMMARY VS FULL:
+- "list issues": Return { data: issues, showBody: false }. Shows labels and subtasks, but HIDES descriptions. THIS IS THE PREFERRED DEFAULT.
+- "list issues and descriptions": Return issues directly (or { data: issues, showBody: true }). Shows labels, subtasks, AND descriptions.
+- Only show descriptions if the user explicitly asks for "descriptions", "details", or "full body".
+- Always include subtasks in the output when listing issues.
 
 AVAILABLE API (on 'github' object):
 
@@ -83,10 +99,14 @@ github.getCurrentMilestone()                   // Get default milestone from con
 
 EXAMPLES:
 
-1. List open issues:
-return await github.listIssues(20);
+1. List open issues (summary - preferred):
+const issues = await github.listIssues(20);
+return { data: issues, showBody: false };
 
-2. Create a milestone and an issue in it:
+2. List issues with full descriptions:
+return await github.listIssues(10);
+
+3. Create a milestone and an issue in it:
 const milestone = await github.createMilestone({
   title: 'v1.0 Release',
   description: 'Final release of version 1.0'
@@ -158,7 +178,7 @@ SEARCH TIPS:
 
   private setupToolHandlers() {
     this.server.setRequestHandler(ListToolsRequestSchema, async () => ({
-      tools: this.getToolsDefinitions(),
+      tools: await this.getToolsDefinitions(),
     }));
 
     this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
@@ -173,51 +193,8 @@ SEARCH TIPS:
         try {
           const result = await this.scriptExecutor.execute(script);
 
-          // Format the result for display
-          let textResult = '';
-          if (typeof result === 'string') {
-            textResult = result;
-          } else if (result === undefined) {
-            textResult = 'Script executed successfully (no return value).';
-          } else if (
-            Array.isArray(result) &&
-            result.every(
-              (item: unknown) =>
-                typeof item === 'object' &&
-                item !== null &&
-                'number' in item &&
-                'title' in item,
-            )
-          ) {
-            // Array of GitHub issues
-            textResult =
-              `Found ${result.length} issues:\n` +
-              (result as Array<{ number: number; title: string; url?: string }>)
-                .map(
-                  (item) =>
-                    `- #${item.number}: ${item.title}${item.url ? ` (${item.url})` : ''}`,
-                )
-                .join('\n');
-          } else if (
-            typeof result === 'object' &&
-            result !== null &&
-            'number' in result &&
-            'title' in result
-          ) {
-            // Single GitHub issue
-            const item = result as {
-              number: number;
-              title: string;
-              url?: string;
-            };
-            textResult = `Issue #${item.number}: ${item.title}${item.url ? `\n${item.url}` : ''}`;
-          } else {
-            // Fallback: JSON
-            textResult = JSON.stringify(result, null, 2);
-          }
-
           return {
-            content: [{ type: 'text', text: textResult }],
+            content: [{ type: 'text', text: formatResult(result) }],
           };
         } catch (error) {
           const errorMessage =
@@ -262,4 +239,141 @@ SEARCH TIPS:
     await this.server.connect(transport);
     console.error('GitHub MCP server (Script Mode) running on stdio');
   }
+}
+
+interface ResultWithDisplayOptions {
+  data: unknown;
+  showBody?: boolean;
+}
+
+/**
+ * Formats a result from the script executor into a user-friendly string.
+ */
+export function formatResult(result: unknown): string {
+  let data = result;
+  let showBody = true;
+
+  if (
+    typeof result === 'object' &&
+    result !== null &&
+    'data' in result &&
+    !isGitHubIssue(result) &&
+    !isGitHubMilestone(result)
+  ) {
+    const wrapper = result as ResultWithDisplayOptions;
+    data = wrapper.data;
+    if (wrapper.showBody !== undefined) {
+      showBody = wrapper.showBody;
+    }
+  }
+
+  if (data === undefined) {
+    return 'Script executed successfully (no return value).';
+  }
+
+  if (typeof data === 'string') {
+    return data;
+  }
+
+  if (Array.isArray(data)) {
+    const arr = data as unknown[];
+    if (arr.length === 0) {
+      return 'No items found.';
+    }
+
+    const issues = arr.filter(isGitHubIssue);
+    if (issues.length === arr.length) {
+      return issues.map((i) => formatIssue(i, showBody)).join('\n\n');
+    }
+
+    const milestones = arr.filter(isGitHubMilestone);
+    if (milestones.length === arr.length) {
+      return milestones.map(formatMilestone).join('\n\n');
+    }
+
+    if (arr.every((item: unknown) => typeof item === 'string')) {
+      return arr.join('\n');
+    }
+  }
+
+  if (isGitHubIssue(data)) {
+    return formatIssue(data, showBody);
+  }
+
+  if (isGitHubMilestone(data)) {
+    return formatMilestone(data);
+  }
+
+  // Handle objects (like Maps turned into objects)
+  if (typeof data === 'object' && data !== null) {
+    const entries = Object.entries(data);
+    if (
+      entries.length > 0 &&
+      entries.every(([, v]) => isGitHubIssue(v) || isGitHubMilestone(v))
+    ) {
+      return entries
+        .map(([key, value]) => {
+          const formatted = isGitHubIssue(value)
+            ? formatIssue(value, showBody)
+            : formatMilestone(value as GitHubMilestone);
+          return `Key: ${key}\n${formatted}`;
+        })
+        .join('\n\n---\n\n');
+    }
+  }
+
+  // Fallback: Pretty-print JSON
+  return JSON.stringify(data, null, 2);
+}
+
+function isGitHubIssue(obj: unknown): obj is GitHubIssue {
+  return (
+    typeof obj === 'object' &&
+    obj !== null &&
+    'number' in obj &&
+    'title' in obj &&
+    'id' in obj &&
+    ('url' in obj || 'state' in obj)
+  );
+}
+
+function isGitHubMilestone(obj: unknown): obj is GitHubMilestone {
+  return (
+    typeof obj === 'object' &&
+    obj !== null &&
+    'number' in obj &&
+    'title' in obj &&
+    'id' in obj &&
+    !('url' in obj) &&
+    !('state' in obj)
+  );
+}
+
+function formatIssue(issue: GitHubIssue, showBody = true): string {
+  let output = `#${issue.number}: ${issue.title}`;
+
+  if (issue.labels?.nodes && issue.labels.nodes.length > 0) {
+    const labels = issue.labels.nodes.map((l) => l.name).join(', ');
+    output += `\nLabels: ${labels}`;
+  }
+
+  if (issue.subIssues?.nodes && issue.subIssues.nodes.length > 0) {
+    const subtasks = issue.subIssues.nodes
+      .map((si) => `  - #${si.number}: ${si.title}`)
+      .join('\n');
+    output += `\nSubtasks:\n${subtasks}`;
+  }
+
+  if (showBody && issue.body) {
+    output += `\n\n${issue.body}`;
+  }
+  return output;
+}
+
+function formatMilestone(ms: GitHubMilestone): string {
+  let output = `Milestone #${ms.number}: ${ms.title}`;
+  if (ms.description) {
+    output += `\n${ms.description}`;
+  }
+  return output;
 }

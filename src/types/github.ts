@@ -38,6 +38,14 @@ export interface GitHubIssue {
   labels?: {
     nodes: Array<{ name: string; id?: string }>;
   };
+  subIssues?: {
+    nodes: Array<{
+      id: string;
+      number: number;
+      title: string;
+      state: string;
+    }>;
+  };
 }
 
 export interface GitHubLabel {
