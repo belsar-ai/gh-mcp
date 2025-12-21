@@ -29,6 +29,9 @@ github.createIssue({ title, body?, labels?, milestone?, issueType?, parentIssueI
 github.updateIssue(number, { title?, body?, state? })  // state: 'OPEN' | 'CLOSED'
 github.deleteIssue(number)
 
+// PULL REQUESTS
+github.getPullRequest(number)                  // Get PR with description, comments & replies
+
 // LABELS & MILESTONES
 github.getLabels()                             // Get all label names
 github.getMilestones()                         // Get all open milestone titles

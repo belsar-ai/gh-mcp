@@ -6,6 +6,7 @@ import type {
   GhMcpConfig,
   ContextData,
   GitHubIssue,
+  GitHubPullRequest,
   GitHubMilestone,
   GraphQLResponse,
 } from '../types/github.js';
@@ -322,6 +323,18 @@ export class GitHubClient {
       repository: { issue: GitHubIssue | null };
     }>(queries.GET_ISSUE, { owner, repo, number });
     return result.repository.issue;
+  }
+
+  /**
+   * Get a single pull request by number
+   */
+  async getPullRequest(number: number): Promise<GitHubPullRequest | null> {
+    this.getConfig(); // Ensure config exists before proceeding
+    const { owner, repo } = this.getRepoInfo();
+    const result = await this.execute<{
+      repository: { pullRequest: GitHubPullRequest | null };
+    }>(queries.GET_PULL_REQUEST, { owner, repo, number });
+    return result.repository.pullRequest;
   }
 
   /**

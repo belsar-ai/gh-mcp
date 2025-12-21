@@ -167,4 +167,73 @@ describe('formatResult', () => {
       'Script executed successfully (no return value).',
     );
   });
+
+  it('should format a pull request with comments', () => {
+    const pr = {
+      id: 'pr1',
+      number: 245,
+      title: 'Fix bug',
+      url: 'https://github.com/owner/repo/pull/245',
+      state: 'OPEN',
+      body: 'This PR fixes a bug.',
+      author: { login: 'alice' },
+      createdAt: '2023-01-01T10:00:00Z',
+      updatedAt: '2023-01-01T11:00:00Z',
+      labels: { nodes: [{ name: 'bug' }] },
+      comments: {
+        nodes: [
+          {
+            author: { login: 'bob' },
+            body: 'Looks good!',
+            createdAt: '2023-01-01T10:30:00Z',
+          },
+        ],
+      },
+      reviewThreads: {
+        nodes: [
+          {
+            comments: {
+              nodes: [
+                {
+                  author: { login: 'charlie' },
+                  body: 'Change this line',
+                  createdAt: '2023-01-01T10:15:00Z',
+                  path: 'src/index.ts',
+                  line: 10,
+                },
+                {
+                  author: { login: 'alice' },
+                  body: 'Done',
+                  createdAt: '2023-01-01T10:20:00Z',
+                  path: 'src/index.ts',
+                  line: 10,
+                },
+              ],
+            },
+          },
+        ],
+      },
+    };
+
+    const formatted = formatResult(pr);
+    expect(formatted).toContain('PR #245: Fix bug');
+    expect(formatted).toContain('Author: alice');
+    expect(formatted).toContain('## Description');
+    expect(formatted).toContain('This PR fixes a bug.');
+    expect(formatted).toContain('## Comments');
+    expect(formatted).toContain('**charlie** (Review Comment)');
+    expect(formatted).toContain('File: src/index.ts:10');
+    expect(formatted).toContain('Change this line');
+    expect(formatted).toContain('**alice** (Reply)');
+    expect(formatted).toContain('**bob** (General Comment)');
+    expect(formatted).toContain('Looks good!');
+
+    // Check chronological order
+    const charlieIndex = formatted.indexOf('charlie');
+    const aliceReplyIndex = formatted.indexOf('alice', charlieIndex + 1);
+    const bobIndex = formatted.indexOf('bob', aliceReplyIndex + 1);
+
+    expect(charlieIndex).toBeLessThan(aliceReplyIndex);
+    expect(aliceReplyIndex).toBeLessThan(bobIndex);
+  });
 });

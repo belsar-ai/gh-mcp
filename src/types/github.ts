@@ -48,6 +48,46 @@ export interface GitHubIssue {
   };
 }
 
+export interface GitHubComment {
+  author: {
+    login: string;
+  } | null;
+  body: string;
+  createdAt: string;
+  path?: string;
+  line?: number;
+}
+
+export interface GitHubPullRequest {
+  id: string;
+  number: number;
+  title: string;
+  url: string;
+  state: string;
+  body: string;
+  author: {
+    login: string;
+  } | null;
+  createdAt: string;
+  updatedAt: string;
+  milestone?: {
+    title: string;
+  } | null;
+  labels?: {
+    nodes: Array<{ name: string }>;
+  };
+  comments?: {
+    nodes: GitHubComment[];
+  };
+  reviewThreads?: {
+    nodes: Array<{
+      comments: {
+        nodes: GitHubComment[];
+      };
+    }>;
+  };
+}
+
 export interface GitHubLabel {
   id: string;
   name: string;

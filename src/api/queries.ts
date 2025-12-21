@@ -84,6 +84,58 @@ export const GET_ISSUE_ID = `
   }
 `;
 
+export const GET_PULL_REQUEST = `
+  query GetPullRequest($owner: String!, $repo: String!, $number: Int!) {
+    repository(owner: $owner, name: $repo) {
+      pullRequest(number: $number) {
+        id
+        number
+        title
+        url
+        state
+        body
+        author {
+          login
+        }
+        createdAt
+        updatedAt
+        milestone {
+          title
+        }
+        labels(first: 10) {
+          nodes {
+            name
+          }
+        }
+        comments(first: 50) {
+          nodes {
+            author {
+              login
+            }
+            body
+            createdAt
+          }
+        }
+        reviewThreads(first: 50) {
+          nodes {
+            comments(first: 50) {
+              nodes {
+                author {
+                  login
+                }
+                body
+                createdAt
+                path
+                line
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+`;
+
 export const GET_CONTEXT_IDS = `
   query GetContextIDs($owner: String!, $repo: String!, $projectNumber: Int!, $withProject: Boolean!) {
     repository(owner: $owner, name: $repo) {
@@ -185,6 +237,22 @@ export const SEARCH_ISSUES = `
               number
               title
               state
+            }
+          }
+        }
+        ... on PullRequest {
+          id
+          number
+          title
+          url
+          state
+          body
+          milestone {
+            title
+          }
+          labels(first: 10) {
+            nodes {
+              name
             }
           }
         }
