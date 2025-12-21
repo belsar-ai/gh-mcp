@@ -1,6 +1,6 @@
 # gh-mcp
 
-Model Context Protocol (MCP) server for **GitHub Issues** and **Projects**.
+Model Context Protocol (MCP) server for **GitHub Issues**, **Pull Requests**, and **Projects**.
 
 Designed by belsar.ai to enable AI assistants to manage your GitHub workflow with ease and efficiency.
 
@@ -85,25 +85,40 @@ Find all issues tagged 'stale' and close them with a comment "Closing due to ina
 Create a new feature request for "Dark Mode" and add it to my 'Product Roadmap' project.
 ```
 
+```
+Show me PR #245 and tell me if any checks failed.
+```
+
+```
+Get the logs from the failed workflow run.
+```
+
 ## Available API (Script Context)
 
 The AI has access to a global `github` object with the following methods:
 
-### Issues (`github`)
+### Issues
 
-- `listIssues(limit?, openOnly?)`: List issues (default limit: 10, open only).
+- `listIssues(limit?, openOnly?, milestone?)`: List issues, optionally filter by milestone.
 - `getIssue(number)`: Get full details for a specific issue.
 - `searchIssues(query)`: Search using GitHub syntax (auto-scoped to your repo).
 - `createIssue({ title, body?, labels?, milestone?, issueType?, parentIssueId? })`: Create a new issue.
 - `updateIssue(number, { title?, body?, state? })`: Update an issue.
 - `deleteIssue(number)`: Delete an issue.
 
-### Labels & Metadata
+### Pull Requests
+
+- `getPullRequest(number)`: Get PR with description, comments, review threads, and CI check status.
+- `getWorkflowLogs(runId)`: Get logs from failed GitHub Actions jobs (run IDs shown in PR checks).
+
+### Labels & Milestones
 
 - `getLabels()`: List all available labels in the repo.
 - `addLabels(number, labels[])`: Add labels to an issue.
 - `removeLabels(number, labels[])`: Remove labels from an issue.
 - `getMilestones()`: List open milestones.
+- `createMilestone({ title, description?, dueOn?, state? })`: Create a new milestone.
+- `updateMilestone(idOrTitle, { title?, description?, dueOn?, state? })`: Update a milestone.
 - `getIssueTypes()`: List available issue types (for organizations with custom types).
 
 ### Context & Config
@@ -111,6 +126,7 @@ The AI has access to a global `github` object with the following methods:
 - `getRepoInfo()`: Get owner and repo name.
 - `getCurrentMilestone()`: Get the default milestone from your config.
 - `getContextIds()`: Get internal IDs for labels, milestones, etc. (cached).
+- `help()`: Show full API documentation with examples and search tips.
 
 ## Troubleshooting
 
