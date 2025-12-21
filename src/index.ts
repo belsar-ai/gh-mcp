@@ -58,8 +58,8 @@ Enables complex workflows, batch operations, and agentic behaviors in a single t
     return [
       {
         name: 'execute_github_script',
-        description: `Execute JavaScript to manage GitHub issues and pull requests for ${owner}/${repo}.
-API: listIssues(limit?, openOnly?, milestone?), getIssue(number), getPullRequest(number), searchIssues(query), createIssue({...}), updateIssue(number, {...}), getCurrentMilestone(), help().
+        description: `Execute JavaScript to manage GitHub issues for ${owner}/${repo}.
+API: listIssues(limit?, openOnly?, milestone?), getIssue(number), searchIssues(query), createIssue({...}), updateIssue(number, {...}), getCurrentMilestone(), help().
 CRITICAL: When listing issues, ALWAYS return them directly (e.g. 'const ms = await github.getCurrentMilestone(); return github.listIssues(20, true, ms?.title);') and respond ONLY with "Done.". HIDE descriptions unless explicitly asked.
 For the full API, examples, and search tips, execute: return github.help();`,
         inputSchema: {
