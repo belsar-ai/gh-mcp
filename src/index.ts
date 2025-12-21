@@ -16,6 +16,8 @@ import {
   GitHubIssue,
   GitHubMilestone,
   GitHubPullRequest,
+  GitHubCheckRun,
+  GitHubStatusContext,
 } from './types/github.js';
 
 // Re-export for external use
@@ -58,10 +60,21 @@ Enables complex workflows, batch operations, and agentic behaviors in a single t
     return [
       {
         name: 'execute_github_script',
-        description: `Execute JavaScript to manage GitHub issues for ${owner}/${repo}.
-API: listIssues(limit?, openOnly?, milestone?), getIssue(number), searchIssues(query), createIssue({...}), updateIssue(number, {...}), getCurrentMilestone(), help().
-CRITICAL: When listing issues, ALWAYS return them directly (e.g. 'const ms = await github.getCurrentMilestone(); return github.listIssues(20, true, ms?.title);') and respond ONLY with "Done.". HIDE descriptions unless explicitly asked.
-For the full API, examples, and search tips, execute: return github.help();`,
+        description: `Execute JavaScript to manage GitHub for ${owner}/${repo}.
+
+return github.listIssues(limit?, openOnly?, milestone?)  // List issues, filter by milestone
+return github.getIssue(number)                           // Get single issue details
+return github.getPullRequest(number)                     // Get PR with comments, checks & review threads
+return github.getWorkflowLogs(runId)                     // Get logs from failed workflow jobs
+return github.searchIssues(query)                        // Search with GitHub syntax
+return github.createIssue({title, body?, labels?, milestone?, parentIssueId?})
+return github.updateIssue(number, {title?, body?, state?})
+return github.getCurrentMilestone()                      // Get default milestone from config
+return github.help()                                     // Examples and search tips
+
+Current milestone issues: const ms = await github.getCurrentMilestone(); return github.listIssues(20, true, ms?.title);
+
+CRITICAL: After tool output, respond ONLY with "Done." - no summaries.`,
         inputSchema: {
           type: 'object',
           properties: {
@@ -368,6 +381,29 @@ function formatPullRequest(pr: GitHubPullRequest): string {
       }
       output += `\n${c.body}\n`;
     });
+  }
+
+  // Add checks section at the end
+  const statusCheckRollup = pr.commits?.nodes?.[0]?.commit?.statusCheckRollup;
+  if (statusCheckRollup?.contexts?.nodes?.length) {
+    output += `\n## Checks\n`;
+    for (const node of statusCheckRollup.contexts.nodes) {
+      if ('name' in node) {
+        // CheckRun
+        const check = node as GitHubCheckRun;
+        const icon = check.conclusion === 'SUCCESS' ? '✓' : '✗';
+        const status = check.conclusion?.toLowerCase() || 'pending';
+        // Extract run ID from detailsUrl (e.g., https://github.com/owner/repo/actions/runs/12345678/job/...)
+        const runMatch = check.detailsUrl?.match(/\/runs\/(\d+)/);
+        const runInfo = runMatch ? ` → Run ${runMatch[1]}` : '';
+        output += `${icon} ${check.name} (${status})${runInfo}\n`;
+      } else if ('context' in node) {
+        // StatusContext
+        const ctx = node as GitHubStatusContext;
+        const icon = ctx.state === 'SUCCESS' ? '✓' : '✗';
+        output += `${icon} ${ctx.context} (${ctx.state.toLowerCase()})\n`;
+      }
+    }
   }
 
   return output;

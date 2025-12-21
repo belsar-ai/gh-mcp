@@ -30,7 +30,8 @@ github.updateIssue(number, { title?, body?, state? })  // state: 'OPEN' | 'CLOSE
 github.deleteIssue(number)
 
 // PULL REQUESTS
-github.getPullRequest(number)                  // Get PR with description, comments & replies
+github.getPullRequest(number)                  // Get PR with description, comments, checks & replies
+github.getWorkflowLogs(runId)                  // Get logs from failed jobs in a workflow run
 
 // LABELS & MILESTONES
 github.getLabels()                             // Get all label names

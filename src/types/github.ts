@@ -58,6 +58,25 @@ export interface GitHubComment {
   line?: number;
 }
 
+export interface GitHubCheckRun {
+  name: string;
+  conclusion: string | null;
+  detailsUrl: string;
+}
+
+export interface GitHubStatusContext {
+  context: string;
+  state: string;
+  targetUrl: string | null;
+}
+
+export interface GitHubStatusCheckRollup {
+  state: string;
+  contexts: {
+    nodes: Array<GitHubCheckRun | GitHubStatusContext>;
+  };
+}
+
 export interface GitHubPullRequest {
   id: string;
   number: number;
@@ -75,6 +94,13 @@ export interface GitHubPullRequest {
   } | null;
   labels?: {
     nodes: Array<{ name: string }>;
+  };
+  commits?: {
+    nodes: Array<{
+      commit: {
+        statusCheckRollup: GitHubStatusCheckRollup | null;
+      };
+    }>;
   };
   comments?: {
     nodes: GitHubComment[];

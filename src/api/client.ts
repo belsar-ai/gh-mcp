@@ -794,4 +794,91 @@ export class GitHubClient {
     const milestone = await this.getCurrentMilestone();
     return getApiDocs(owner, repo, milestone?.title);
   }
+
+  /**
+   * Get workflow logs for a specific run ID
+   * Returns formatted output from failed jobs, or a summary if all passed
+   */
+  async getWorkflowLogs(runId: number): Promise<string> {
+    this.getConfig();
+    const { owner, repo } = this.getRepoInfo();
+
+    // Get jobs for this run
+    interface WorkflowJob {
+      id: number;
+      name: string;
+      conclusion: string | null;
+      status: string;
+      html_url: string;
+    }
+
+    interface JobsResponse {
+      jobs: WorkflowJob[];
+    }
+
+    const jobsResult = await this.executeRest<JobsResponse>(
+      'GET',
+      `/repos/${owner}/${repo}/actions/runs/${runId}/jobs`,
+    );
+
+    const failedJobs = jobsResult.jobs.filter(
+      (job) => job.conclusion === 'failure',
+    );
+
+    if (failedJobs.length === 0) {
+      const statuses = jobsResult.jobs
+        .map((j) => `${j.name}: ${j.conclusion || j.status}`)
+        .join('\n');
+      return `No failed jobs in run ${runId}.\n\n${statuses}`;
+    }
+
+    // Fetch logs for failed jobs in parallel
+    const logPromises = failedJobs.map(async (job) => {
+      try {
+        const logs = await this.fetchJobLogs(owner, repo, job.id);
+        return `## ${job.name} (failed)\n\n${logs}`;
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error);
+        return `## ${job.name} (failed)\n\nCould not fetch logs: ${msg}`;
+      }
+    });
+
+    const logResults = await Promise.all(logPromises);
+    return logResults.join('\n\n---\n\n');
+  }
+
+  /**
+   * Fetch raw logs for a specific job
+   */
+  private async fetchJobLogs(
+    owner: string,
+    repo: string,
+    jobId: number,
+  ): Promise<string> {
+    const token = this.getToken();
+    const url = `${GITHUB_REST_URL}/repos/${owner}/${repo}/actions/jobs/${jobId}/logs`;
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'User-Agent': 'gh-mcp/0.1.0',
+        Accept: 'application/vnd.github.v3+json',
+      },
+      redirect: 'follow',
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch logs: ${response.status}`);
+    }
+
+    const logs = await response.text();
+
+    // Truncate if too long (keep last 5000 chars which usually has the error)
+    if (logs.length > 8000) {
+      return '...(truncated)\n\n' + logs.slice(-5000);
+    }
+
+    return logs;
+  }
 }
