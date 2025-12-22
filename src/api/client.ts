@@ -542,10 +542,18 @@ export class GitHubClient {
     labels?: string[];
     milestone?: string;
     issueType?: string;
-    parentIssueId?: string;
+    parentIssueId?: string | number;
   }): Promise<GitHubIssue> {
     const context = await this.getContextIds();
     const config = this.getConfig();
+
+    // Resolve parentIssueId if provided as a number
+    let parentIssueId: string | undefined;
+    if (typeof opts.parentIssueId === 'number') {
+      parentIssueId = await this.getIssueId(opts.parentIssueId);
+    } else {
+      parentIssueId = opts.parentIssueId;
+    }
 
     // Resolve label IDs
     const labelIds: string[] = [];
@@ -585,7 +593,7 @@ export class GitHubClient {
       labelIds: labelIds.length > 0 ? labelIds : null,
       milestoneId: milestoneId || null,
       issueTypeId: issueTypeId || null,
-      parentIssueId: opts.parentIssueId || null,
+      parentIssueId: parentIssueId || null,
     });
 
     const issue = result.createIssue.issue;

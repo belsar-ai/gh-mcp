@@ -67,10 +67,12 @@ return github.getIssue(number)                           // Get single issue det
 return github.getPullRequest(number)                     // Get PR with comments, checks & review threads
 return github.getWorkflowLogs(runId)                     // Get logs from failed workflow jobs
 return github.searchIssues(query)                        // Search with GitHub syntax
-return github.createIssue({title, body?, labels?, milestone?, parentIssueId?})
+return github.createIssue({title, body?, labels?, milestone?, parentIssueId?})  // parentIssueId: number or ID
 return github.updateIssue(number, {title?, body?, state?})
 return github.getCurrentMilestone()                      // Get default milestone from config
 return github.help()                                     // Examples and search tips
+
+Add subtask: return github.createIssue({title: "Task", parentIssueId: 94})
 
 Current milestone issues: const ms = await github.getCurrentMilestone(); return github.listIssues(20, true, ms?.title);
 

@@ -25,7 +25,7 @@ AVAILABLE API:
 github.listIssues(limit?, openOnly?, milestone?)           // List issues (can filter by milestone title)
 github.getIssue(number)                        // Get single issue details
 github.searchIssues(query)                     // Powerful search (preferred for filtering)
-github.createIssue({ title, body?, labels?, milestone?, issueType?, parentIssueId? })
+github.createIssue({ title, body?, labels?, milestone?, issueType?, parentIssueId? })  // parentIssueId: issue number or node ID
 github.updateIssue(number, { title?, body?, state? })  // state: 'OPEN' | 'CLOSED'
 github.deleteIssue(number)
 
@@ -51,16 +51,15 @@ EXAMPLES:
 const milestone = await github.getCurrentMilestone();
 return await github.listIssues(20, true, milestone.title);
 
-2. Create issue with subtasks:
+2. Add subtask to existing issue #94:
+return github.createIssue({ title: 'Subtask', parentIssueId: 94 });
+
+3. Create parent with subtask in one script:
 const parent = await github.createIssue({ title: 'Main Task' });
-await github.createIssue({
-  title: 'Subtask',
-  body: "Subtask of #" + parent.number,
-  parentIssueId: parent.id
-});
+await github.createIssue({ title: 'Subtask', parentIssueId: parent.number });
 return parent;
 
-3. Batch operations:
+4. Batch operations:
 const issues = await github.searchIssues('label:stale is:open');
 for (const issue of issues) {
   await github.updateIssue(issue.number, { state: 'CLOSED' });
